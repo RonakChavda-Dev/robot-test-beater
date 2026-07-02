@@ -157,6 +157,74 @@ def click_rotating_items_until_multiple_of_360(driver, by_type, name):
 			attempts += 1
 
 
+def wait_for_level_6_tic_tac_toe(driver, timeout_seconds=30):
+	"""Wait until the level 6 Vue component has mounted."""
+	deadline = time.time() + timeout_seconds
+	while time.time() < deadline:
+		found = driver.execute_script(
+			"""
+			const findComponent = (vm) => {
+				if (!vm) return null;
+				const methods = vm.$options && vm.$options.methods;
+				if (methods && methods.checkVerify) {
+					return vm;
+				}
+				for (const child of (vm.$children || [])) {
+					const found = findComponent(child);
+					if (found) return found;
+				}
+				return null;
+			};
+
+			return !!findComponent(window.$nuxt);
+			"""
+		)
+		if found:
+			return
+		time.sleep(0.25)
+	raise TimeoutError("Timed out waiting for the level 6 tic-tac-toe Vue component to mount.")
+
+
+def solve_level_6_xoxo_vue(driver):
+	"""Bypass the tic-tac-toe AI by setting the Vue game state to an X win."""
+	wait_for_level_6_tic_tac_toe(driver)
+	driver.execute_script(
+		"""
+		const findComponent = (vm) => {
+			if (!vm) return null;
+			const methods = vm.$options && vm.$options.methods;
+			if (methods && methods.checkVerify) {
+				return vm;
+			}
+			for (const child of (vm.$children || [])) {
+				const found = findComponent(child);
+				if (found) return found;
+			}
+			return null;
+		};
+
+		const wrapper = findComponent(window.$nuxt);
+		if (!wrapper) {
+			throw new Error('Unable to locate the level 6 Vue wrapper.');
+		}
+
+		const game = wrapper.$parent;
+		if (!game) {
+			throw new Error('Unable to locate the tic-tac-toe Vue instance.');
+		}
+
+		game.grid = ['X', 'X', 'X', null, 'O', null, null, null, null];
+		game.winner = 'X';
+		game.winningLine = [0, 1, 2];
+		game.currentPlayer = 'O';
+		game.lastSelected = 2;
+		"""
+	)
+
+	time.sleep(0.2)
+	click_element(driver, 'id', 'captcha-verify-button')
+
+
 def main():
 	options = Options()
 	options.add_experimental_option("excludeSwitches", ["enable-automation"]) 
@@ -226,13 +294,19 @@ def main():
 	# LEVEL 5
 	# =============================================================
 
-	print("Clicking rotating items until they are multiples of 360 degrees...")
-
 	click_rotating_items_until_multiple_of_360(driver, 'class', 'rotating-item')
 
-	print("All rotating items are multiples of 360 degrees. Clicking the verify button...")
-
 	click_element(driver, 'id', 'captcha-verify-button')
+	time.sleep(5)
+
+	# =============================================================
+	# LEVEL 6
+	# =============================================================
+	solve_level_6_xoxo_vue(driver)
+
+	time.sleep(5)
+
+
 
 	print("All levels completed. The browser will remain open for 1 hour.")
 
